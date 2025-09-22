@@ -33,10 +33,32 @@ if st.button("开始分析"):
             
             if response.status_code == 200:
                 try:
+                    # 首先显示原始响应内容（用于调试）
+                    st.write("原始响应内容:", response.text)
+                    
+                    # 然后尝试解析 JSON
                     data = response.json()
                     st.success("分析完成！")
+                    
+                    # 显示所有返回的数据（用于调试）
+                    st.write("解析后的数据:", data)
+                    
+                    # 显示消息
                     st.write(f"n8n 回复: {data.get('message', '无消息')}")
-                    st.write(f"收到的代币: {data.get('received_token', '无代币信息')}")
+                    
+                    # 显示代币信息
+                    st.write(f"收到的代币: {data.get('token', data.get('received_token', '无代币信息'))}")
+                    
+                    # 显示价格信息（如果存在）
+                    if 'price' in data:
+                        st.metric(
+                            label=f"{data.get('token', '未知代币')} 价格",
+                            value=f"${data.get('price', 'N/A')}",
+                            delta=f"{data.get('change_24h', '0')}%"
+                        )
+                    else:
+                        st.write("价格信息: 无可用数据")
+                        
                 except ValueError:
                     st.error("n8n 返回的数据不是有效的 JSON 格式")
                     st.write(f"原始响应: {response.text}")
