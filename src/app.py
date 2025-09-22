@@ -1,41 +1,49 @@
 import streamlit as st
-import datetime  # 需要导入datetime模块
+import datetime
 import requests
 
 # 设置页面标题
 st.title("🚀 CTC Smart Cryptocurrency Recommendation Assistant")
-st.markdown("---")  # 修正了拼写错误
+st.markdown("---")
 
-# 显示当前时间（一个简单的动态功能）
-st.write("Sydney:", datetime.datetime.now())  # 修正了函数调用
+# 显示当前时间
+st.write("Sydney:", datetime.datetime.now())
 
 # 创建一个输入框
-token_symbol = st.text_input("Enter the cryptocurrency code (eg. BTC, ETH):", "BTC")  # 修正了引号和文本
+token_symbol = st.text_input("Enter the cryptocurrency code (eg. BTC, ETH):", "BTC")
 
 # 创建一个按钮
 if st.button("开始分析"):
     with st.spinner('AI正在努力分析中...'):
         
-        # 1. 这是你的 n8n Webhook URL - 直接从你的 n8n 界面复制过来！
         n8n_webhook_url = "https://ct012.app.n8n.cloud/webhook-test/d0c76d63-0bd0-4f67-906b-4aa02157eb2a"
         
-        # 2. 准备要发送的数据
         payload = {
-            "token": token_symbol  # 这个 token_symbol 是用户输入的代币符号
+            "token": token_symbol
         }
         
         try:
-            # 3. 向 n8n 发送 POST 请求（“按门铃”）
-            response = requests.post(n8n_webhook_url, json=payload)
+            # 添加超时参数，防止请求无限期挂起
+            response = requests.post(n8n_webhook_url, json=payload, timeout=10)
             
-            # 4. 检查请求是否成功
+            # 打印响应状态和内容，用于调试
+            st.write(f"状态码: {response.status_code}")
+            st.write(f"响应内容: {response.text}")
+            
             if response.status_code == 200:
-                data = response.json()  # 获取 n8n 返回的 JSON 数据
-                st.success("分析完成！")
-                st.write(f"n8n 回复: {data['message']}")
-                st.write(f"收到的代币: {data['received_token']}")
+                try:
+                    data = response.json()
+                    st.success("分析完成！")
+                    st.write(f"n8n 回复: {data.get('message', '无消息')}")
+                    st.write(f"收到的代币: {data.get('received_token', '无代币信息')}")
+                except ValueError:
+                    st.error("n8n 返回的数据不是有效的 JSON 格式")
             else:
-                st.error(f"n8n 似乎出了问题，错误代码: {response.status_code}")
+                st.error(f"n8n 返回错误，状态码: {response.status_code}")
                 
+        except requests.exceptions.Timeout:
+            st.error("请求超时，n8n 没有在预期时间内响应")
+        except requests.exceptions.ConnectionError:
+            st.error("无法连接到 n8n 服务器")
         except Exception as e:
-            st.error(f"连接失败: {e}")
+            st.error(f"发生未知错误: {str(e)}")
