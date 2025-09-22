@@ -1,5 +1,6 @@
 import streamlit as st
 import datetime  # 需要导入datetime模块
+import requests
 
 # 设置页面标题
 st.title("🚀 CTC Smart Cryptocurrency Recommendation Assistant")
