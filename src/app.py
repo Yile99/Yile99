@@ -3,12 +3,8 @@ import datetime
 import requests
 import json
 from requests.auth import HTTPBasicAuth
-
 import streamlit as st
-import requests
 import pandas as pd
-
-
 
 
 # 添加页脚
@@ -207,33 +203,65 @@ with st.expander("使用说明"):
     """)
 
 st.set_page_config(page_title="Bitcoin 新闻分析", layout="wide")
-
 st.title("📊 比特币新闻情绪追踪")
 
-# 1. 调用 n8n webhook（你需要把这个换成自己的 n8n Webhook URL）
-WEBHOOK_URL = "https://ct012.app.n8n.cloud/webhook/your-workflow-id/crypto-news"  # 示例
+# 输入框让用户输入代币
+token_symbol = st.text_input("请输入加密货币代码 (如 BTC, ETH):", "BTC").upper()
 
-try:
-    response = requests.get(WEBHOOK_URL, timeout=10)
-    response.raise_for_status()
-    news_data = response.json()
-except Exception as e:
-    st.error(f"请求数据失败: {e}")
-    st.stop()
+# 是否启用调试模式
+debug_mode = st.checkbox("启用调试模式", value=True)
 
-# 2. 展示新闻列表
-for item in news_data:
-    st.subheader(item["title"])
-    st.write(f"📰 来源: {item['source']} | 📅 时间: {item['published_at']}")
-    st.write(f"[阅读原文]({item['url']})")
+# n8n 生产 webhook URL
+WEBHOOK_URL = "https://ct012.app.n8n.cloud/webhook/your-workflow-id/crypto-news"
+
+# 如果 webhook 有 Basic Auth
+auth = HTTPBasicAuth('yile.cai1222@gmail.com', 'Ax112211')
+
+# 按钮触发
+if st.button("获取新闻与情绪分析"):
+    payload = {"token": token_symbol}
     
-    # 情绪字段
-    sentiment = item.get("sentiment", {})
-    if sentiment:
-        df = pd.DataFrame([sentiment])
-        st.dataframe(df, use_container_width=True)
+    try:
+        response = requests.post(WEBHOOK_URL, json=payload, auth=auth, timeout=10)
+        response.raise_for_status()
+        news_data = response.json()
+        
+        if debug_mode:
+            st.markdown("### 调试信息")
+            st.write("请求 URL:", WEBHOOK_URL)
+            st.write("请求 payload:", payload)
+            st.write("响应内容:", news_data)
+        
+        # 展示新闻
+        for item in news_data:
+            st.subheader(item.get("title", "无标题"))
+            st.write(f"📰 来源: {item.get('source', '未知')} | 📅 时间: {item.get('published_at', '未知')}")
+            st.write(f"[阅读原文]({item.get('url', '#')})")
+            
+            sentiment = item.get("sentiment", {})
+            if sentiment:
+                df = pd.DataFrame([sentiment])
+                st.dataframe(df, use_container_width=True)
+            
+            st.markdown("---")
+        
+    except requests.exceptions.Timeout:
+        st.error("请求超时，n8n 没有在预期时间内响应")
+    except requests.exceptions.ConnectionError:
+        st.error("无法连接到 n8n 服务器")
+    except requests.exceptions.HTTPError as e:
+        st.error(f"HTTP 错误: {e}")
+        if debug_mode:
+            st.write("响应内容:", response.text)
+    except Exception as e:
+        st.error(f"发生未知错误: {str(e)}")
 
-    st.markdown("---")
+# 页脚
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: grey;'>CTC Smart Cryptocurrency Recommendation Assistant © 2023</p>", 
+    unsafe_allow_html=True
+)
 
 # 添加页脚
 st.markdown("---")
