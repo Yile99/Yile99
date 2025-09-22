@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import requests
+from requests.auth import HTTPBasicAuth  # 导入 Basic Auth 模块
 
 # 设置页面标题
 st.title("🚀 CTC Smart Cryptocurrency Recommendation Assistant")
@@ -22,13 +23,13 @@ if st.button("开始分析"):
             "token": token_symbol
         }
         
+        # 添加 Basic Auth 认证信息 - 你需要替换为你在 n8n 中设置的实际用户名和密码
+        auth = HTTPBasicAuth('your_username', 'your_password')
+        
         try:
-            # 添加超时参数，防止请求无限期挂起
-            response = requests.post(n8n_webhook_url, json=payload, timeout=10)
+            response = requests.post(n8n_webhook_url, json=payload, auth=auth, timeout=10)
             
-            # 打印响应状态和内容，用于调试
             st.write(f"状态码: {response.status_code}")
-            st.write(f"响应内容: {response.text}")
             
             if response.status_code == 200:
                 try:
@@ -38,8 +39,10 @@ if st.button("开始分析"):
                     st.write(f"收到的代币: {data.get('received_token', '无代币信息')}")
                 except ValueError:
                     st.error("n8n 返回的数据不是有效的 JSON 格式")
+                    st.write(f"原始响应: {response.text}")
             else:
                 st.error(f"n8n 返回错误，状态码: {response.status_code}")
+                st.write(f"错误详情: {response.text}")
                 
         except requests.exceptions.Timeout:
             st.error("请求超时，n8n 没有在预期时间内响应")
