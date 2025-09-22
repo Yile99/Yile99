@@ -24,7 +24,7 @@ if st.button("开始分析"):
         }
         
         # 添加 Basic Auth 认证信息 - 你需要替换为你在 n8n 中设置的实际用户名和密码
-        auth = HTTPBasicAuth('your_username', 'your_password')
+        auth = HTTPBasicAuth('yile.cai1222@gmail.com', 'Ax112211')
         
         try:
             response = requests.post(n8n_webhook_url, json=payload, auth=auth, timeout=10)
