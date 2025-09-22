@@ -1,27 +1,41 @@
 import streamlit as st
 import datetime
 import requests
-from requests.auth import HTTPBasicAuth
 import pandas as pd
+from requests.auth import HTTPBasicAuth
 
-# ---------------------- 页面配置 ----------------------
-st.set_page_config(page_title="CTC Cryptocurrency Assistant", layout="wide")
+# -------------------- 页面配置 --------------------
+st.set_page_config(
+    page_title="CTC Cryptocurrency Assistant",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# ---------------------- CSS 样式 ----------------------
+# -------------------- CSS 样式 --------------------
 st.markdown("""
 <style>
+    body {
+        background: linear-gradient(135deg, #e0f7fa, #ffffff);
+    }
     .main-header {
         font-size: 3rem;
         color: #1E90FF;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
     }
     .metric-card {
         background-color: #f0f2f6;
         padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
         margin-bottom: 20px;
+    }
+    .news-card {
+        background-color: #ffffffcc;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     .positive-change {
         color: green;
@@ -35,122 +49,107 @@ st.markdown("""
         width: 100%;
         background-color: #1E90FF;
         color: white;
+        font-weight: bold;
     }
-    .debug-info {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 5px;
-        border-left: 4px solid #6c757d;
-        font-family: monospace;
+    .footer {
+        text-align: center;
+        color: grey;
         font-size: 0.9em;
         margin-top: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------- 页面标题 ----------------------
-st.markdown('<h1 class="main-header">🚀 CTC Smart Cryptocurrency Recommendation Assistant</h1>', unsafe_allow_html=True)
-st.markdown("---")
+# -------------------- 标题 --------------------
+st.markdown('<h1 class="main-header">🚀 CTC Smart Cryptocurrency Assistant</h1>', unsafe_allow_html=True)
 
-# ---------------------- 输入区 ----------------------
-col_input, col_result = st.columns([1, 2])
+# -------------------- 侧边栏 --------------------
+st.sidebar.header("用户设置")
+token_symbol = st.sidebar.text_input("请输入加密货币代码 (如 BTC, ETH):", "BTC", key="sidebar_token").upper()
+debug_mode = st.sidebar.checkbox("启用调试模式", value=True, key="sidebar_debug")
 
-with col_input:
-    st.write("Sydney:", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+# -------------------- 时间显示 --------------------
+st.sidebar.write("🕒 当前时间（Sydney）:", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-    # 输入代币代码
-    token_symbol = st.text_input("请输入加密货币代码 (如 BTC, ETH):", "BTC", key="token_input")
+# -------------------- 主体布局 --------------------
+col1, col2 = st.columns([1,2])
 
-    # 调试模式开关
-    debug_mode = st.checkbox("启用调试模式", value=True, key="debug_mode")
-
-    # 按钮
-    analyze_price_btn = st.button("分析价格", key="btn_price")
-    analyze_news_btn = st.button("获取新闻与情绪分析", key="btn_news")
-
-with col_result:
-    result_placeholder = st.empty()
-
-# ---------------------- n8n Webhook 配置 ----------------------
-PRICE_WEBHOOK_URL = "https://ct012.app.n8n.cloud/webhook-test/d0c76d63-0bd0-4f67-906b-4aa02157eb2a"
-NEWS_WEBHOOK_URL = "https://ct012.app.n8n.cloud/webhook/your-workflow-id/crypto-news"
-
-auth = HTTPBasicAuth('yile.cai1222@gmail.com', 'Ax112211')
-
-# ---------------------- 处理价格分析 ----------------------
-if analyze_price_btn:
-    with st.spinner('AI正在努力分析价格...'):
+# --------- 代币价格分析 ---------
+with col1:
+    if st.button("📈 分析价格", key="btn_price"):
+        n8n_price_url = "https://ct012.app.n8n.cloud/webhook-test/d0c76d63-0bd0-4f67-906b-4aa02157eb2a"
         payload = {"token": token_symbol}
+        auth = HTTPBasicAuth('yile.cai1222@gmail.com', 'Ax112211')
+        
         try:
-            response = requests.post(PRICE_WEBHOOK_URL, json=payload, auth=auth, timeout=10)
+            response = requests.post(n8n_price_url, json=payload, auth=auth, timeout=10)
             response.raise_for_status()
             data = response.json()
-            if isinstance(data, list) and len(data) > 0:
-                data = data[0].get('json', data[0])
-            if debug_mode:
-                st.markdown("### 调试信息")
-                st.write("请求 URL:", PRICE_WEBHOOK_URL)
-                st.write("请求 payload:", payload)
-                st.write("响应数据:", data)
+            
+            # 支持列表或字典格式
+            if isinstance(data, list) and len(data) > 0 and 'json' in data[0]:
+                data = data[0]['json']
+            elif isinstance(data, list) and len(data) > 0:
+                data = data[0]
 
-            # 显示价格
-            price = data.get('price')
-            change_24h = data.get('change_24h', '0%')
-            token_name = data.get('token', token_symbol)
-
-            if price is not None:
+            # 展示价格
+            price = data.get("price")
+            change_24h = data.get("change_24h", "0%")
+            token_name = data.get("token", token_symbol)
+            
+            if price:
                 change_value = float(change_24h.strip('%'))
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                 st.metric(label=f"{token_name} 价格", value=f"${price:,.2f}", delta=f"{change_24h}")
                 st.markdown('</div>', unsafe_allow_html=True)
+                
                 if change_value >= 0:
-                    st.info(f"过去24小时内，{token_name}价格上涨了{change_24h}")
+                    st.info(f"过去24小时内，{token_name}价格上涨了 {change_24h}")
                 else:
-                    st.warning(f"过去24小时内，{token_name}价格下跌了{change_24h.replace('-', '')}")
+                    st.warning(f"过去24小时内，{token_name}价格下跌了 {change_24h.replace('-', '')}")
             else:
                 st.error("无法获取价格信息")
-                if debug_mode:
-                    st.write("可用数据键:", list(data.keys()))
-
+            
+            if debug_mode:
+                st.write("调试信息:", data)
+                
         except Exception as e:
-            st.error(f"获取价格时发生错误: {str(e)}")
+            st.error(f"请求价格失败: {str(e)}")
 
-# ---------------------- 处理新闻与情绪 ----------------------
-if analyze_news_btn:
-    with st.spinner('AI正在获取新闻与情绪分析...'):
+# --------- 新闻与情绪分析 ---------
+with col2:
+    if st.button("📰 获取新闻与情绪分析", key="btn_news"):
+        n8n_news_url = "https://ct012.app.n8n.cloud/webhook-test/d0c76d63-0bd0-4f67-906b-4aa02157eb2a"  # 替换为你的新闻 webhook
         payload = {"token": token_symbol}
+        auth = HTTPBasicAuth('yile.cai1222@gmail.com', 'Ax112211')
+        
         try:
-            response = requests.post(NEWS_WEBHOOK_URL, json=payload, auth=auth, timeout=10)
+            response = requests.post(n8n_news_url, json=payload, auth=auth, timeout=10)
             response.raise_for_status()
             news_data = response.json()
-            if debug_mode:
-                st.markdown("### 调试信息")
-                st.write("请求 URL:", NEWS_WEBHOOK_URL)
-                st.write("请求 payload:", payload)
-                st.write("响应数据:", news_data)
-
+            
+            # 支持列表格式
+            if isinstance(news_data, dict):
+                news_data = [news_data]
+            
             for item in news_data:
+                st.markdown('<div class="news-card">', unsafe_allow_html=True)
                 st.subheader(item.get("title", "无标题"))
-                st.write(f"📰 来源: {item.get('source', '未知')} | 📅 时间: {item.get('published_at', '未知')}")
-                st.write(f"[阅读原文]({item.get('url', '#')})")
+                st.write(f"📰 来源: {item.get('source','未知')} | 📅 时间: {item.get('published_at','未知')}")
+                st.write(f"[阅读原文]({item.get('url','#')})")
+                
                 sentiment = item.get("sentiment", {})
                 if sentiment:
                     df = pd.DataFrame([sentiment])
                     st.dataframe(df, use_container_width=True)
-                st.markdown("---")
-
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            if debug_mode:
+                st.write("调试信息:", news_data)
+            
         except Exception as e:
-            st.error(f"获取新闻时发生错误: {str(e)}")
+            st.error(f"请求新闻失败: {str(e)}")
 
-# ---------------------- 使用说明 ----------------------
-with st.expander("使用说明"):
-    st.markdown("""
-    1. 输入加密货币代码（如BTC、ETH）
-    2. 点击“分析价格”按钮获取代币价格
-    3. 点击“获取新闻与情绪分析”按钮获取新闻和情绪
-    4. 启用调试模式可以查看详细请求和响应信息
-    """)
-
-# ---------------------- 页脚 ----------------------
+# -------------------- 页脚 --------------------
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: grey;'>CTC Smart Cryptocurrency Recommendation Assistant © 2023</p>", unsafe_allow_html=True)
+st.markdown('<p class="footer">CTC Smart Cryptocurrency Recommendation Assistant © 2023 | 新闻数据由 Cryptopanic 提供</p>', unsafe_allow_html=True)
