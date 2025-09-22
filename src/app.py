@@ -5,19 +5,6 @@ import json
 from requests.auth import HTTPBasicAuth
 
 
-# 添加使用说明
-with st.expander("使用说明"):
-    st.markdown("""
-    1. 在输入框中输入加密货币代码（如BTC、ETH）
-    2. 点击"开始分析"按钮获取价格信息
-    3. 点击"刷新新闻"按钮获取最新相关新闻
-    4. 系统将通过n8n工作流从CoinGecko API获取最新价格信息
-    5. 新闻来自Cryptopanic API，提供最新的加密货币动态
-    
-    **支持的加密货币:** BTC, ETH, 以及其他CoinGecko API支持的代币
-    
-    **调试模式:** 启用后可以查看详细的请求和响应信息，有助于排查问题
-    """)
 
 # 添加页脚
 st.markdown("---")
