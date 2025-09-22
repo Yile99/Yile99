@@ -3,7 +3,41 @@ import datetime
 import requests
 import json
 from requests.auth import HTTPBasicAuth
+import streamlit as st
+import requests
+import datetime
 
+# 在适当位置添加新闻显示函数
+def display_news():
+    st.markdown("---")
+    st.subheader("📰 最新比特币与加密货币新闻")
+    
+    # 使用Cryptopanic API（免费版可用）
+    api_key = "你的Cryptopanic_API密钥"  # 去cryptopanic.com注册获取
+    url = f"https://cryptopanic.com/api/v1/posts/?auth_token={api_key}&currencies=BTC&kind=news"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        news_data = response.json()
+        
+        # 显示新闻条目
+        for i, news_item in enumerate(news_data['results'][:5]):  # 只显示最新5条
+            with st.expander(f"{news_item['title']}"):
+                st.write(f"**来源:** {news_item['source']['title']}")
+                st.write(f"发布时间: {datetime.datetime.fromisoformat(news_item['published_at'].replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M')}")
+                st.write(f"{news_item['description']}")
+                st.markdown(f"[阅读原文]({news_item['url']})")
+                
+    except Exception as e:
+        st.error(f"获取新闻时出错: {str(e)}")
+        st.info("备用新闻源: 比特币当前交易价格约为 $114,491，24小时下跌0.94%:cite[9]。市场近期出现全线下跌，比特币失守11.5万美元:cite[1]。")
+
+# 在你的主函数中调用
+if st.button("开始分析") or True:  # 这里根据你的实际逻辑调整
+    # 你原有的价格分析代码...
+    
+    # 显示新闻
+    display_news()
 # 设置页面标题和布局
 st.set_page_config(page_title="CTC Cryptocurrency Assistant", layout="wide")
 
