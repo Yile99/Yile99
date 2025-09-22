@@ -211,7 +211,7 @@ st.set_page_config(page_title="Bitcoin 新闻分析", layout="wide")
 st.title("📊 比特币新闻情绪追踪")
 
 # 1. 调用 n8n webhook（你需要把这个换成自己的 n8n Webhook URL）
-WEBHOOK_URL = "http://localhost:5678/webhook-test/crypto-news"  # 示例
+WEBHOOK_URL = "https://ct012.app.n8n.cloud/webhook-test/crypto-news"  # 示例
 
 try:
     response = requests.get(WEBHOOK_URL, timeout=10)
