@@ -4,6 +4,38 @@ import requests
 import json
 from requests.auth import HTTPBasicAuth
 
+import streamlit as st
+import requests
+import pandas as pd
+
+st.set_page_config(page_title="Bitcoin 新闻分析", layout="wide")
+
+st.title("📊 比特币新闻情绪追踪")
+
+# 1. 调用 n8n webhook（你需要把这个换成自己的 n8n Webhook URL）
+WEBHOOK_URL = "http://localhost:5678/webhook-test/crypto-news"  # 示例
+
+try:
+    response = requests.get(WEBHOOK_URL, timeout=10)
+    response.raise_for_status()
+    news_data = response.json()
+except Exception as e:
+    st.error(f"请求数据失败: {e}")
+    st.stop()
+
+# 2. 展示新闻列表
+for item in news_data:
+    st.subheader(item["title"])
+    st.write(f"📰 来源: {item['source']} | 📅 时间: {item['published_at']}")
+    st.write(f"[阅读原文]({item['url']})")
+    
+    # 情绪字段
+    sentiment = item.get("sentiment", {})
+    if sentiment:
+        df = pd.DataFrame([sentiment])
+        st.dataframe(df, use_container_width=True)
+
+    st.markdown("---")
 
 
 # 添加页脚
