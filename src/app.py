@@ -17,7 +17,7 @@ if st.button("开始分析"):
     with st.spinner('AI正在努力分析中...'):
         
         # 1. 这是你的 n8n Webhook URL - 直接从你的 n8n 界面复制过来！
-        n8n_webhook_url = "https://ct012.app.n8n.cloud/webhook/d0c76d63-0bd0-4f67-906b-4aa02157eb2a"
+        n8n_webhook_url = "https://ct012.app.n8n.cloud/webhook-test/d0c76d63-0bd0-4f67-906b-4aa02157eb2a"
         
         # 2. 准备要发送的数据
         payload = {
