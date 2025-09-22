@@ -273,13 +273,6 @@ if analyze_btn:
         news_items = get_crypto_news(token_symbol)
         display_news(news_items)
 
-# 页面加载时默认显示比特币新闻
-if not analyze_btn and not news_btn:
-    st.info("👈 输入加密货币代码并点击'开始分析'或直接点击'刷新新闻'查看最新动态")
-    
-    # 默认显示比特币新闻
-    news_items = get_crypto_news("BTC")
-    display_news(news_items)
 
 # 添加使用说明
 with st.expander("使用说明"):
