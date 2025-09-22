@@ -37,7 +37,11 @@ if st.button("开始分析"):
                     st.write("原始响应内容:", response.text)
                     
                     # 然后尝试解析 JSON
-                    data = response.json()
+                    data_list = response.json()
+                    if isinstance(data_list, list) and len(data_list) > 0:
+                        data = data_list[0].get('json', {})
+                    else:
+                        data = {}
                     st.success("分析完成！")
                     
                     # 显示所有返回的数据（用于调试）
