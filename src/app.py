@@ -13,7 +13,7 @@ def display_news():
     st.subheader("📰 最新比特币与加密货币新闻")
     
     # 使用Cryptopanic API（免费版可用）
-    api_key = "你的Cryptopanic_API密钥"  # 去cryptopanic.com注册获取
+    api_key = "94175c508338f6594ebec52cbe031069b242413f"  # 去cryptopanic.com注册获取
     url = f"https://cryptopanic.com/api/v1/posts/?auth_token={api_key}&currencies=BTC&kind=news"
     
     try:
