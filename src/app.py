@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import requests
+import json
 from requests.auth import HTTPBasicAuth
 
 # 设置页面标题和布局
@@ -35,6 +36,15 @@ st.markdown("""
         background-color: #1E90FF;
         color: white;
     }
+    .debug-info {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #6c757d;
+        font-family: monospace;
+        font-size: 0.9em;
+        margin-top: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -51,6 +61,9 @@ with col1:
     
     # 创建一个输入框
     token_symbol = st.text_input("Enter the cryptocurrency code (eg. BTC, ETH):", "BTC").upper()
+    
+    # 添加调试模式开关
+    debug_mode = st.checkbox("启用调试模式", value=True)
     
     # 创建一个按钮
     analyze_btn = st.button("开始分析", type="primary")
@@ -74,16 +87,49 @@ if analyze_btn:
         try:
             response = requests.post(n8n_webhook_url, json=payload, auth=auth, timeout=10)
             
+            # 显示状态码
+            st.write(f"状态码: {response.status_code}")
+            
+            if debug_mode:
+                st.markdown("### 调试信息")
+                st.write("请求URL:", n8n_webhook_url)
+                st.write("请求负载:", payload)
+                st.write("响应内容:", response.text)
+            
             if response.status_code == 200:
                 try:
                     # 解析响应数据
                     response_data = response.json()
                     
+                    if debug_mode:
+                        st.write("解析后的JSON:", response_data)
+                    
                     # 检查返回的数据结构
-                    if isinstance(response_data, list) and len(response_data) > 0:
-                        # 获取列表中的第一个元素
-                        data = response_data[0].get('json', {})
-                        
+                    if isinstance(response_data, list):
+                        # 处理列表格式的响应
+                        if len(response_data) > 0:
+                            data = response_data[0]
+                            
+                            # 检查是否有json字段
+                            if 'json' in data:
+                                data = data['json']
+                            else:
+                                data = data  # 直接使用第一个元素
+                        else:
+                            st.error("返回的列表为空")
+                            data = {}
+                    else:
+                        # 如果不是列表，直接使用
+                        data = response_data
+                    
+                    # 显示处理后的数据
+                    if debug_mode:
+                        st.write("处理后的数据:", data)
+                    
+                    # 检查是否有错误信息
+                    if data.get('error'):
+                        st.error(f"错误: {data.get('message', '未知错误')}")
+                    else:
                         with result_placeholder.container():
                             st.success("分析完成！")
                             
@@ -92,7 +138,7 @@ if analyze_btn:
                                 st.write(f"**状态:** {data.get('message')}")
                             
                             # 显示代币信息
-                            token_name = data.get('token', 'Unknown')
+                            token_name = data.get('token', token_symbol)
                             st.write(f"**代币:** {token_name}")
                             
                             # 显示价格信息
@@ -101,27 +147,27 @@ if analyze_btn:
                             
                             if price is not None:
                                 # 确定价格变化样式
-                                change_style = "positive-change" if change_24h.startswith('+') else "negative-change"
+                                change_value = float(change_24h.strip('%'))
+                                change_style = "positive-change" if change_value >= 0 else "negative-change"
                                 
                                 # 创建指标卡
                                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                                 st.metric(
                                     label=f"{token_name} 价格",
                                     value=f"${price:,.2f}",
-                                    delta=change_24h
+                                    delta=f"{change_24h}"
                                 )
                                 st.markdown('</div>', unsafe_allow_html=True)
                                 
                                 # 添加价格变化解释
-                                if change_24h.startswith('+'):
+                                if change_value >= 0:
                                     st.info(f"过去24小时内，{token_name}价格上涨了{change_24h}")
                                 else:
-                                    change_value = change_24h.replace('-', '') if change_24h.startswith('-') else change_24h
-                                    st.warning(f"过去24小时内，{token_name}价格下跌了{change_value}")
+                                    st.warning(f"过去24小时内，{token_name}价格下跌了{change_24h.replace('-', '')}")
                             else:
                                 st.error("无法获取价格信息")
-                    else:
-                        st.error("返回的数据格式不正确")
+                                if debug_mode:
+                                    st.write("可用数据键:", list(data.keys()))
                         
                 except ValueError as e:
                     st.error("n8n 返回的数据不是有效的 JSON 格式")
@@ -146,6 +192,8 @@ with st.expander("使用说明"):
     4. 结果将显示在右侧面板中
     
     **支持的加密货币:** BTC, ETH, 以及其他CoinGecko API支持的代币
+    
+    **调试模式:** 启用后可以查看详细的请求和响应信息，有助于排查问题
     """)
 
 # 添加页脚
