@@ -45,6 +45,12 @@ body {
     margin-bottom: 10px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+.news-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #1E90FF;
+    margin-bottom: 5px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +81,7 @@ with col1:
             payload = {"token": token_symbol}
             
             try:
-                response = requests.post(WEBHOOK_URL, json=payload, auth=auth, timeout=10)
+                response = requests.post(WEBHOOK_URL, json=payload, auth=auth, timeout=30)
                 response.raise_for_status()
                 data = response.json()
                 
@@ -85,105 +91,160 @@ with col1:
                     st.write("请求 payload:", payload)
                     st.write("完整响应:", data)
                     st.write("响应类型:", type(data))
+                    if isinstance(data, list):
+                        st.write("数组长度:", len(data))
+                        for i, item in enumerate(data):
+                            st.write(f"第{i}个元素类型:", type(item))
+                            st.write(f"第{i}个元素内容:", item)
                 
-                # 新的数据解析逻辑
+                # 数据解析逻辑
                 price = None
                 change_24h = "0%"
                 message = ""
                 news_list = []
                 
+                # 处理n8n返回的数据结构
                 if isinstance(data, list):
-                    # 处理数组响应
+                    # n8n返回的是数组，包含多个节点的输出
                     for item in data:
-                        item_data = item.get("json", item)
-                        if isinstance(item_data, dict):
-                            if "price" in item_data:
-                                price = item_data.get("price")
-                                change_24h = item_data.get("change_24h", "0%")
-                                message = item_data.get("message", "")
-                            elif "title" in item_data or isinstance(item_data, list):
-                                news_list = item_data if isinstance(item_data, list) else [item_data]
-                        elif isinstance(item_data, list):
-                            news_list = item_data
+                        if isinstance(item, dict):
+                            # 检查是否有json字段
+                            item_data = item.get("json", item)
+                            
+                            if isinstance(item_data, dict):
+                                # 如果是价格数据
+                                if "price" in item_data:
+                                    price = item_data.get("price")
+                                    change_24h = item_data.get("change_24h", "0%")
+                                    message = item_data.get("message", "")
+                                
+                                # 如果是新闻数据（包含results字段）
+                                elif "results" in item_data:
+                                    # 从Cryptopanic API获取的新闻数据
+                                    news_results = item_data.get("results", [])
+                                    if isinstance(news_results, list):
+                                        # 取前5条新闻
+                                        news_list = news_results[:5]
+                                
+                                # 如果是处理后的新闻数据（已经是数组）
+                                elif isinstance(item_data, list) and len(item_data) > 0:
+                                    # 检查第一个元素是否有新闻特征字段
+                                    first_item = item_data[0] if isinstance(item_data[0], dict) else {}
+                                    if "title" in first_item or "url" in first_item:
+                                        news_list = item_data
+                            
+                            # 如果item_data本身就是新闻数组
+                            elif isinstance(item_data, list) and len(item_data) > 0:
+                                first_item = item_data[0] if isinstance(item_data[0], dict) else {}
+                                if "title" in first_item or "url" in first_item:
+                                    news_list = item_data
+                
                 else:
-                    # 处理对象响应
+                    # 如果是对象格式
                     price = data.get("price")
                     change_24h = data.get("change_24h", "0%")
                     message = data.get("message", "")
                     news_list = data.get("news", [])
+                    if not news_list:
+                        news_list = data.get("results", [])
                 
                 # 确保news_list是列表
                 if not isinstance(news_list, list):
-                    news_list = [news_list] if news_list else []
+                    news_list = []
                 
                 # -------------------------------
-                # 右侧显示
+                # 右侧显示 - 价格信息
                 # -------------------------------
                 with col2:
                     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                     st.subheader(f"{token_symbol} 实时分析")
+                    
                     if message:
                         st.write(f"状态信息: {message}")
+                    
                     if price is not None:
-                        st.write(f"价格: ${price:,.2f}")
+                        # 格式化价格显示
                         try:
-                            change_value = float(change_24h.strip('%'))
-                            trend = "上涨 📈" if change_value >=0 else "下跌 📉"
-                            trend_class = "positive-change" if change_value >=0 else "negative-change"
+                            price_float = float(price)
+                            st.write(f"价格: ${price_float:,.2f}")
+                        except (ValueError, TypeError):
+                            st.write(f"价格: {price}")
+                        
+                        # 显示24小时变化
+                        try:
+                            change_value = float(str(change_24h).strip('%'))
+                            trend = "上涨 📈" if change_value >= 0 else "下跌 📉"
+                            trend_class = "positive-change" if change_value >= 0 else "negative-change"
                             st.markdown(f"<p class='{trend_class}'>过去24小时: {trend} ({change_24h})</p>", unsafe_allow_html=True)
                         except ValueError:
                             st.write(f"过去24小时: {change_24h}")
+                    else:
+                        st.warning("未能获取到价格数据")
+                    
                     st.markdown('</div>', unsafe_allow_html=True)
                     
                     # -------------------------------
                     # 新闻展示
                     # -------------------------------
                     if news_list and len(news_list) > 0:
-                        st.subheader(f"最新{token_symbol}新闻与市场情绪")
+                        st.subheader(f"📰 最新{token_symbol}相关新闻")
                         
-                        for i, item in enumerate(news_list):
-                            # 确保item是字典格式
-                            if isinstance(item, dict):
-                                news_item = item.get("json", item)
-                            else:
-                                news_item = item
+                        for i, news_item in enumerate(news_list):
+                            # 确保news_item是字典
+                            if not isinstance(news_item, dict):
+                                continue
                                 
                             st.markdown('<div class="news-card">', unsafe_allow_html=True)
                             
+                            # 标题
                             title = news_item.get('title', '无标题')
-                            st.write(f"**{i+1}. {title}**")
+                            st.markdown(f'<div class="news-title">{i+1}. {title}</div>', unsafe_allow_html=True)
                             
+                            # 来源和时间
                             source = news_item.get('source', news_item.get('domain', '未知来源'))
                             published_at = news_item.get('published_at', '未知时间')
-                            st.write(f"📰 来源: {source} | 📅 {published_at}")
+                            st.write(f"**来源:** {source} | **时间:** {published_at}")
                             
+                            # 链接
                             url = news_item.get('url', '#')
-                            if url != '#':
-                                st.write(f"[阅读原文]({url})")
+                            if url and url != '#':
+                                st.markdown(f"[阅读原文 ↗]({url})")
                             
-                            # 情绪分析显示
+                            # 情绪分析（如果有）
                             sentiment = news_item.get('sentiment', {})
-                            if sentiment and isinstance(sentiment, dict):
+                            votes = news_item.get('votes', {})
+                            
+                            if sentiment or votes:
                                 st.write("**市场情绪分析:**")
+                                
+                                # 创建列来显示情绪指标
                                 cols = st.columns(3)
+                                
                                 with cols[0]:
-                                    positive = sentiment.get('positive', 0)
+                                    positive = sentiment.get('positive', votes.get('positive', 0))
                                     st.metric("积极", positive)
+                                
                                 with cols[1]:
-                                    negative = sentiment.get('negative', 0)
+                                    negative = sentiment.get('negative', votes.get('negative', 0))
                                     st.metric("消极", negative)
+                                
                                 with cols[2]:
-                                    important = sentiment.get('important', 0)
+                                    important = sentiment.get('important', votes.get('important', 0))
                                     st.metric("重要度", important)
                             
                             st.markdown('</div>', unsafe_allow_html=True)
                     else:
                         st.info("暂无相关新闻数据")
+                        if debug_mode:
+                            st.write("新闻列表为空或格式不正确")
             
             except requests.exceptions.RequestException as e:
                 st.error(f"请求失败: {str(e)}")
             except Exception as e:
                 st.error(f"处理数据时出错: {str(e)}")
+                if debug_mode:
+                    import traceback
+                    st.write("详细错误信息:", traceback.format_exc())
 
 # -------------------------------
 # 页脚
