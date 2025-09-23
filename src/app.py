@@ -28,6 +28,21 @@ body {
     margin-bottom: 20px;
     text-align: center;
 }
+.recommendation-card {
+    background-color: #e8f5e8;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 6px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 5px solid #4CAF50;
+}
+.sentiment-card {
+    background-color: #fff3cd;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
 .positive-change {
     color: green;
     font-weight: bold;
@@ -50,6 +65,18 @@ body {
     font-weight: bold;
     color: #1E90FF;
     margin-bottom: 5px;
+}
+.sentiment-bullish {
+    color: #28a745;
+    font-weight: bold;
+}
+.sentiment-bearish {
+    color: #dc3545;
+    font-weight: bold;
+}
+.sentiment-neutral {
+    color: #6c757d;
+    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -102,6 +129,8 @@ with col1:
                 change_24h = "0%"
                 message = ""
                 news_list = []
+                recommendation = {}
+                news_sentiment = {}
                 
                 # 处理n8n返回的数据结构
                 if isinstance(data, list) and len(data) > 0:
@@ -111,26 +140,55 @@ with col1:
                     change_24h = item_data.get("change_24h", "0%")
                     message = item_data.get("message", "")
                     news_list = item_data.get("news", [])
+                    recommendation = item_data.get("recommendation", {})
+                    news_sentiment = item_data.get("news_sentiment", {})
                 else:
                     # 如果是对象格式
                     price = data.get("price")
                     change_24h = data.get("change_24h", "0%")
                     message = data.get("message", "")
                     news_list = data.get("news", [])
+                    recommendation = data.get("recommendation", {})
+                    news_sentiment = data.get("news_sentiment", {})
                 
                 # 确保news_list是列表
                 if not isinstance(news_list, list):
                     news_list = []
                 
                 # -------------------------------
-                # 右侧显示 - 价格信息
+                # 右侧显示 - 价格信息和推荐
                 # -------------------------------
                 with col2:
+                    # 显示交易推荐
+                    if recommendation:
+                        st.markdown('<div class="recommendation-card">', unsafe_allow_html=True)
+                        action = recommendation.get('action', 'HOLD')
+                        confidence = recommendation.get('confidence', 'MEDIUM')
+                        rec_message = recommendation.get('message', '')
+                        
+                        # 根据行动类型显示不同的图标和颜色
+                        action_icons = {
+                            'BUY': '💰',
+                            'SELL': '💸', 
+                            'HOLD': '⏸️'
+                        }
+                        action_colors = {
+                            'BUY': '#28a745',
+                            'SELL': '#dc3545',
+                            'HOLD': '#ffc107'
+                        }
+                        
+                        icon = action_icons.get(action, '⏸️')
+                        color = action_colors.get(action, '#ffc107')
+                        
+                        st.markdown(f'<h2 style="color: {color}; text-align: center;">{icon} 交易建议: {action}</h2>', unsafe_allow_html=True)
+                        st.markdown(f'<p style="text-align: center; font-size: 1.1rem;"><strong>置信度:</strong> {confidence}</p>', unsafe_allow_html=True)
+                        st.markdown(f'<p style="text-align: center;">{rec_message}</p>', unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # 显示价格信息
                     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                     st.subheader(f"{token_symbol} 实时分析")
-                    
-                    if message:
-                        st.write(f"状态信息: {message}")
                     
                     if price is not None:
                         # 格式化价格显示
@@ -154,20 +212,44 @@ with col1:
                     st.markdown('</div>', unsafe_allow_html=True)
                     
                     # -------------------------------
+                    # 新闻情绪分析显示
+                    # -------------------------------
+                    if news_sentiment:
+                        st.markdown('<div class="sentiment-card">', unsafe_allow_html=True)
+                        st.subheader("📊 新闻情绪分析")
+                        
+                        # 总体情绪
+                        overall = news_sentiment.get('overall', 'neutral')
+                        sentiment_icons = {'bullish': '📈', 'bearish': '📉', 'neutral': '➡️'}
+                        sentiment_classes = {'bullish': 'sentiment-bullish', 'bearish': 'sentiment-bearish', 'neutral': 'sentiment-neutral'}
+                        
+                        icon = sentiment_icons.get(overall, '➡️')
+                        sentiment_class = sentiment_classes.get(overall, 'sentiment-neutral')
+                        st.markdown(f'<p class="{sentiment_class}" style="font-size: 1.2rem;">总体市场情绪: {icon} {overall}</p>', unsafe_allow_html=True)
+                        
+                        # 情绪分布
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            bullish_count = news_sentiment.get('bullish', 0)
+                            bullish_percent = news_sentiment.get('bullish_percent', 0)
+                            st.metric("📈 看涨新闻", f"{bullish_count}条", f"{bullish_percent}%")
+                        
+                        with col2:
+                            bearish_count = news_sentiment.get('bearish', 0)
+                            bearish_percent = news_sentiment.get('bearish_percent', 0)
+                            st.metric("📉 看跌新闻", f"{bearish_count}条", f"{bearish_percent}%")
+                        
+                        with col3:
+                            neutral_count = news_sentiment.get('neutral', 0)
+                            neutral_percent = news_sentiment.get('neutral_percent', 0)
+                            st.metric("➡️ 中性新闻", f"{neutral_count}条", f"{neutral_percent}%")
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    # -------------------------------
                     # 新闻展示
                     # -------------------------------
-
-                    # 在新闻展示部分添加情绪标签
-                    sentiment_icons = {
-                        'bullish': '📈',
-                        'bearish': '📉', 
-                        'neutral': '➡️'
-                    }
-                    
-                    for news_item in news_list:
-                        sentiment = news_item.get('sentiment', 'neutral')
-                        icon = sentiment_icons.get(sentiment, '➡️')
-                        st.write(f"**情绪:** {icon} {sentiment}")
                     if news_list and len(news_list) > 0:
                         st.subheader(f"📰 最新{token_symbol}相关新闻")
                         
@@ -181,30 +263,30 @@ with col1:
                             title = news_item.get('title', '无标题')
                             st.markdown(f'<div class="news-title">{i+1}. {title}</div>', unsafe_allow_html=True)
                             
+                            # 情绪标签
+                            sentiment = news_item.get('sentiment', 'neutral')
+                            confidence = news_item.get('confidence', 0)
+                            sentiment_icons = {'bullish': '📈', 'bearish': '📉', 'neutral': '➡️'}
+                            sentiment_classes = {'bullish': 'sentiment-bullish', 'bearish': 'sentiment-bearish', 'neutral': 'sentiment-neutral'}
+                            
+                            icon = sentiment_icons.get(sentiment, '➡️')
+                            sentiment_class = sentiment_classes.get(sentiment, 'sentiment-neutral')
+                            st.markdown(f'<p class="{sentiment_class}">AI情绪分析: {icon} {sentiment} (置信度: {confidence}%)</p>', unsafe_allow_html=True)
+                            
                             # 来源和时间
                             source = news_item.get('source', '未知来源')
                             published_at = news_item.get('published_at', '未知时间')
                             st.write(f"**来源:** {source} | **时间:** {published_at}")
                             
+                            # 描述（如果有）
+                            description = news_item.get('description', '')
+                            if description:
+                                st.write(f"**摘要:** {description}")
+                            
                             # 链接
                             url = news_item.get('url', '#')
                             if url and url != '#':
                                 st.markdown(f"[阅读原文 ↗]({url})")
-                            
-                            # 情绪分析（如果有）
-                            votes = news_item.get('votes', {})
-                            if votes:
-                                st.write("**市场情绪分析:**")
-                                cols = st.columns(3)
-                                with cols[0]:
-                                    positive = votes.get('positive', 0)
-                                    st.metric("积极", positive)
-                                with cols[1]:
-                                    negative = votes.get('negative', 0)
-                                    st.metric("消极", negative)
-                                with cols[2]:
-                                    important = votes.get('important', 0)
-                                    st.metric("重要度", important)
                             
                             st.markdown('</div>', unsafe_allow_html=True)
                     else:
