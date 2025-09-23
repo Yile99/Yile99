@@ -3,7 +3,6 @@ import datetime
 import requests
 import pandas as pd
 from requests.auth import HTTPBasicAuth
-import html  # 用于解码HTML实体
 
 # -------------------------------
 # 页面配置与样式
@@ -51,18 +50,6 @@ body {
     font-weight: bold;
     color: #1E90FF;
     margin-bottom: 5px;
-}
-.sentiment-positive {
-    color: green;
-    font-weight: bold;
-}
-.sentiment-negative {
-    color: red;
-    font-weight: bold;
-}
-.sentiment-important {
-    color: orange;
-    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -117,98 +104,19 @@ with col1:
                 news_list = []
                 
                 # 处理n8n返回的数据结构
-                if isinstance(data, list):
-                    raw_news_data = None
-                    processed_news_data = None
-                    
-                    # 分离原始新闻数据和处理后的新闻数据
-                    for item in data:
-                        if isinstance(item, dict):
-                            item_data = item.get("json", item)
-                            
-                            # 查找原始新闻数据（包含results字段）
-                            if isinstance(item_data, dict) and "results" in item_data:
-                                raw_news_data = item_data.get("results", [])
-                            
-                            # 查找处理后的新闻数据（包含title和votes字段）
-                            elif isinstance(item_data, dict) and "title" in item_data and "votes" in item_data:
-                                processed_news_data = item_data
-                            elif isinstance(item_data, list) and len(item_data) > 0:
-                                first_item = item_data[0] if isinstance(item_data[0], dict) else {}
-                                if "title" in first_item and "votes" in first_item:
-                                    processed_news_data = item_data
-                    
-                    # 合并新闻数据
-                    if raw_news_data and processed_news_data:
-                        # 确保processed_news_data是列表
-                        if not isinstance(processed_news_data, list):
-                            processed_news_data = [processed_news_data]
-                        
-                        # 创建标题到处理数据的映射
-                        processed_news_map = {}
-                        for p_news in processed_news_data:
-                            if isinstance(p_news, dict):
-                                title = p_news.get("title", "")
-                                if title:
-                                    processed_news_map[title] = p_news
-                        
-                        # 合并数据
-                        for r_news in raw_news_data[:5]:  # 只取前5条
-                            if isinstance(r_news, dict):
-                                title = r_news.get("title", "")
-                                processed_info = processed_news_map.get(title, {})
-                                
-                                # 合并两个数据源
-                                merged_news = {
-                                    "title": title,
-                                    "description": r_news.get("description", ""),
-                                    "url": r_news.get("url", "#"),
-                                    "published_at": r_news.get("published_at", "未知时间"),
-                                    "source": r_news.get("source", {}).get("title", "未知来源") if isinstance(r_news.get("source"), dict) else "未知来源",
-                                    "kind": r_news.get("kind", "未知类型"),
-                                    "votes": processed_info.get("votes", {"positive": 0, "negative": 0, "important": 0})
-                                }
-                                news_list.append(merged_news)
-                    
-                    # 如果合并失败，使用原始新闻数据
-                    elif raw_news_data:
-                        for r_news in raw_news_data[:5]:
-                            if isinstance(r_news, dict):
-                                news_list.append({
-                                    "title": r_news.get("title", ""),
-                                    "description": r_news.get("description", ""),
-                                    "url": r_news.get("url", "#"),
-                                    "published_at": r_news.get("published_at", "未知时间"),
-                                    "source": r_news.get("source", {}).get("title", "未知来源") if isinstance(r_news.get("source"), dict) else "未知来源",
-                                    "kind": r_news.get("kind", "未知类型"),
-                                    "votes": {"positive": 0, "negative": 0, "important": 0}
-                                })
-                    
-                    # 如果只有处理后的数据
-                    elif processed_news_data:
-                        if not isinstance(processed_news_data, list):
-                            processed_news_data = [processed_news_data]
-                        
-                        for p_news in processed_news_data[:5]:
-                            if isinstance(p_news, dict):
-                                news_list.append({
-                                    "title": p_news.get("title", ""),
-                                    "description": "",
-                                    "url": p_news.get("url", "#"),
-                                    "published_at": p_news.get("published_at", "未知时间"),
-                                    "source": p_news.get("source", "未知来源"),
-                                    "kind": "未知类型",
-                                    "votes": p_news.get("votes", {"positive": 0, "negative": 0, "important": 0})
-                                })
-                
+                if isinstance(data, list) and len(data) > 0:
+                    # 取第一个元素，其中包含合并后的数据
+                    item_data = data[0].get("json", data[0])
+                    price = item_data.get("price")
+                    change_24h = item_data.get("change_24h", "0%")
+                    message = item_data.get("message", "")
+                    news_list = item_data.get("news", [])
                 else:
                     # 如果是对象格式
                     price = data.get("price")
                     change_24h = data.get("change_24h", "0%")
                     message = data.get("message", "")
                     news_list = data.get("news", [])
-                    if not news_list:
-                        news_list = data.get("results", [])
                 
                 # 确保news_list是列表
                 if not isinstance(news_list, list):
@@ -252,67 +160,39 @@ with col1:
                         st.subheader(f"📰 最新{token_symbol}相关新闻")
                         
                         for i, news_item in enumerate(news_list):
+                            if not isinstance(news_item, dict):
+                                continue
+                                
                             st.markdown('<div class="news-card">', unsafe_allow_html=True)
                             
                             # 标题
                             title = news_item.get('title', '无标题')
                             st.markdown(f'<div class="news-title">{i+1}. {title}</div>', unsafe_allow_html=True)
                             
-                            # 描述（解码HTML实体）
-                            description = news_item.get('description', '')
-                            if description:
-                                # 解码HTML实体
-                                description = html.unescape(description)
-                                # 移除HTML标签
-                                import re
-                                description = re.sub(r'<[^>]+>', '', description)
-                                st.write(f"**摘要:** {description}")
-                            
-                            # 来源、时间和类型
+                            # 来源和时间
                             source = news_item.get('source', '未知来源')
                             published_at = news_item.get('published_at', '未知时间')
-                            kind = news_item.get('kind', '未知类型')
-                            
-                            # 格式化时间
-                            try:
-                                if 'T' in published_at:
-                                    dt = datetime.datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-                                    published_at = dt.strftime("%Y-%m-%d %H:%M:%S")
-                            except:
-                                pass
-                            
-                            st.write(f"**来源:** {source} | **时间:** {published_at} | **类型:** {kind}")
+                            st.write(f"**来源:** {source} | **时间:** {published_at}")
                             
                             # 链接
                             url = news_item.get('url', '#')
                             if url and url != '#':
                                 st.markdown(f"[阅读原文 ↗]({url})")
                             
-                            # 情绪分析
+                            # 情绪分析（如果有）
                             votes = news_item.get('votes', {})
                             if votes:
                                 st.write("**市场情绪分析:**")
-                                
-                                # 创建列来显示情绪指标
                                 cols = st.columns(3)
-                                
                                 with cols[0]:
                                     positive = votes.get('positive', 0)
-                                    st.metric("👍 积极", positive, 
-                                             delta=f"+{positive}" if positive > 0 else None,
-                                             delta_color="normal")
-                                
+                                    st.metric("积极", positive)
                                 with cols[1]:
                                     negative = votes.get('negative', 0)
-                                    st.metric("👎 消极", negative,
-                                             delta=f"+{negative}" if negative > 0 else None,
-                                             delta_color="inverse")
-                                
+                                    st.metric("消极", negative)
                                 with cols[2]:
                                     important = votes.get('important', 0)
-                                    st.metric("⭐ 重要度", important,
-                                             delta=f"+{important}" if important > 0 else None,
-                                             delta_color="off")
+                                    st.metric("重要度", important)
                             
                             st.markdown('</div>', unsafe_allow_html=True)
                     else:
