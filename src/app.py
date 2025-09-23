@@ -74,26 +74,50 @@ with col1:
             auth = HTTPBasicAuth('yile.cai1222@gmail.com', 'Ax112211')
             payload = {"token": token_symbol}
             
-            try:
-                response = requests.post(WEBHOOK_URL, json=payload, auth=auth, timeout=10)
-                response.raise_for_status()
-                data = response.json()
-                
-                if debug_mode:
-                    st.markdown("### 调试信息")
-                    st.write("请求 URL:", WEBHOOK_URL)
-                    st.write("请求 payload:", payload)
-                    st.write("响应内容:", data)
-                
-                # -------------------------------
-                # 解析价格信息
-                # -------------------------------
-                if isinstance(data, list) and len(data) > 0:
-                    data = data[0].get("json", data[0])
-                
-                price = data.get("price")
-                change_24h = data.get("change_24h", "0%")
-                message = data.get("message", "")
+           # 替换从这里开始
+try:
+    response = requests.post(WEBHOOK_URL, json=payload, auth=auth, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+    
+    if debug_mode:
+        st.markdown("### 调试信息")
+        st.write("请求 URL:", WEBHOOK_URL)
+        st.write("请求 payload:", payload)
+        st.write("完整响应:", data)
+        st.write("响应类型:", type(data))
+    
+    # 新的数据解析逻辑
+    price = None
+    change_24h = "0%"
+    message = ""
+    news_list = []
+    
+    if isinstance(data, list):
+        # 处理数组响应
+        for item in data:
+            item_data = item.get("json", item)
+            if isinstance(item_data, dict):
+                if "price" in item_data:
+                    price = item_data.get("price")
+                    change_24h = item_data.get("change_24h", "0%")
+                    message = item_data.get("message", "")
+                elif "title" in item_data or isinstance(item_data, list):
+                    news_list = item_data if isinstance(item_data, list) else [item_data]
+            elif isinstance(item_data, list):
+                news_list = item_data
+    else:
+        # 处理对象响应
+        price = data.get("price")
+        change_24h = data.get("change_24h", "0%")
+        message = data.get("message", "")
+        news_list = data.get("news", [])
+    
+    # 确保news_list是列表
+    if not isinstance(news_list, list):
+        news_list = [news_list] if news_list else []
+    
+    # 显示逻辑保持不变...
                 
                 # -------------------------------
                 # 右侧显示
