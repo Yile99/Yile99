@@ -156,6 +156,18 @@ with col1:
                     # -------------------------------
                     # 新闻展示
                     # -------------------------------
+
+                    # 在新闻展示部分添加情绪标签
+                    sentiment_icons = {
+                        'bullish': '📈',
+                        'bearish': '📉', 
+                        'neutral': '➡️'
+                    }
+                    
+                    for news_item in news_list:
+                        sentiment = news_item.get('sentiment', 'neutral')
+                        icon = sentiment_icons.get(sentiment, '➡️')
+                        st.write(f"**情绪:** {icon} {sentiment}")
                     if news_list and len(news_list) > 0:
                         st.subheader(f"📰 最新{token_symbol}相关新闻")
                         
