@@ -104,49 +104,19 @@ with col1:
                 news_list = []
                 
                 # 处理n8n返回的数据结构
-                if isinstance(data, list):
-                    # n8n返回的是数组，包含多个节点的输出
-                    for item in data:
-                        if isinstance(item, dict):
-                            # 检查是否有json字段
-                            item_data = item.get("json", item)
-                            
-                            if isinstance(item_data, dict):
-                                # 如果是价格数据
-                                if "price" in item_data:
-                                    price = item_data.get("price")
-                                    change_24h = item_data.get("change_24h", "0%")
-                                    message = item_data.get("message", "")
-                                
-                                # 如果是新闻数据（包含results字段）
-                                elif "results" in item_data:
-                                    # 从Cryptopanic API获取的新闻数据
-                                    news_results = item_data.get("results", [])
-                                    if isinstance(news_results, list):
-                                        # 取前5条新闻
-                                        news_list = news_results[:5]
-                                
-                                # 如果是处理后的新闻数据（已经是数组）
-                                elif isinstance(item_data, list) and len(item_data) > 0:
-                                    # 检查第一个元素是否有新闻特征字段
-                                    first_item = item_data[0] if isinstance(item_data[0], dict) else {}
-                                    if "title" in first_item or "url" in first_item:
-                                        news_list = item_data
-                            
-                            # 如果item_data本身就是新闻数组
-                            elif isinstance(item_data, list) and len(item_data) > 0:
-                                first_item = item_data[0] if isinstance(item_data[0], dict) else {}
-                                if "title" in first_item or "url" in first_item:
-                                    news_list = item_data
-                
+                if isinstance(data, list) and len(data) > 0:
+                    # 取第一个元素，其中包含合并后的数据
+                    item_data = data[0].get("json", data[0])
+                    price = item_data.get("price")
+                    change_24h = item_data.get("change_24h", "0%")
+                    message = item_data.get("message", "")
+                    news_list = item_data.get("news", [])
                 else:
                     # 如果是对象格式
                     price = data.get("price")
                     change_24h = data.get("change_24h", "0%")
                     message = data.get("message", "")
                     news_list = data.get("news", [])
-                    if not news_list:
-                        news_list = data.get("results", [])
                 
                 # 确保news_list是列表
                 if not isinstance(news_list, list):
@@ -190,7 +160,6 @@ with col1:
                         st.subheader(f"📰 最新{token_symbol}相关新闻")
                         
                         for i, news_item in enumerate(news_list):
-                            # 确保news_item是字典
                             if not isinstance(news_item, dict):
                                 continue
                                 
@@ -201,7 +170,7 @@ with col1:
                             st.markdown(f'<div class="news-title">{i+1}. {title}</div>', unsafe_allow_html=True)
                             
                             # 来源和时间
-                            source = news_item.get('source', news_item.get('domain', '未知来源'))
+                            source = news_item.get('source', '未知来源')
                             published_at = news_item.get('published_at', '未知时间')
                             st.write(f"**来源:** {source} | **时间:** {published_at}")
                             
@@ -211,25 +180,18 @@ with col1:
                                 st.markdown(f"[阅读原文 ↗]({url})")
                             
                             # 情绪分析（如果有）
-                            sentiment = news_item.get('sentiment', {})
                             votes = news_item.get('votes', {})
-                            
-                            if sentiment or votes:
+                            if votes:
                                 st.write("**市场情绪分析:**")
-                                
-                                # 创建列来显示情绪指标
                                 cols = st.columns(3)
-                                
                                 with cols[0]:
-                                    positive = sentiment.get('positive', votes.get('positive', 0))
+                                    positive = votes.get('positive', 0)
                                     st.metric("积极", positive)
-                                
                                 with cols[1]:
-                                    negative = sentiment.get('negative', votes.get('negative', 0))
+                                    negative = votes.get('negative', 0)
                                     st.metric("消极", negative)
-                                
                                 with cols[2]:
-                                    important = sentiment.get('important', votes.get('important', 0))
+                                    important = votes.get('important', 0)
                                     st.metric("重要度", important)
                             
                             st.markdown('</div>', unsafe_allow_html=True)
